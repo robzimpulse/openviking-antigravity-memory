@@ -1,0 +1,16 @@
+{
+  "name": "openviking-memory",
+  "version": "0.1.0",
+  "description": "Native OpenViking long-term memory integration for Antigravity (MCP tools + automatic recall + non-blocking background capture)",
+  "author": {
+    "name": "Vladimir"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "openviking",
+    "memory",
+    "context",
+    "mcp",
+    "lifecycle-hooks"
+  ]
+}

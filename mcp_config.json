@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "openviking": {
+      "command": "node",
+      "args": [
+        "/home/vladimir/.gemini/config/plugins/openviking-memory/servers/mcp-proxy.mjs"
+      ],
+      "env": {
+        "OPENVIKING_CLI_CONFIG_FILE": "/home/vladimir/.openviking/antigravity/ovcli.conf",
+        "OPENVIKING_INTEGRATION_VERSION": "antigravity-0.1.0"
+      },
+      "disabled": false
+    }
+  }
+}

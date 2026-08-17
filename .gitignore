@@ -1,0 +1,13 @@
+# Credentials and runtime data
+*.conf
+*.key
+*.env
+*.log
+*.jsonl
+/logs/
+/state/
+/pending/
+/backups/
+/staging-*/
+node_modules/
+.DS_Store
