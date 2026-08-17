@@ -1,16 +1,21 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "openviking-memory",
   "version": "0.1.0",
-  "description": "Native OpenViking long-term memory integration for Antigravity (MCP tools + automatic recall + non-blocking background capture)",
+  "description": "Native OpenViking long-term memory integration for Antigravity (MCP tools + automatic recall + non-blocking background capture).",
   "author": {
-    "name": "Vladimir"
+    "name": "Vladimir Rogozhin",
+    "url": "https://github.com/V0v1kkk"
   },
-  "license": "Apache-2.0",
+  "homepage": "https://github.com/V0v1kkk/openviking-antigravity-memory",
+  "repository": "https://github.com/V0v1kkk/openviking-antigravity-memory",
+  "license": "MIT",
   "keywords": [
     "openviking",
+    "antigravity",
     "memory",
-    "context",
     "mcp",
-    "lifecycle-hooks"
+    "lifecycle-hooks",
+    "agent-plugins"
   ]
 }
