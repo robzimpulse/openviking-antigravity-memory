@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2026-11-04
+
+### Deprecated
+- Deprecated in favour of OpenViking's built-in Antigravity host. The vendored v0.4.13 code no longer works against current OpenViking servers; the README explains how to remove this plugin and install the replacement. The plugin code is unchanged.
+
 ## [0.1.0] - 2026-08-17
 
 ### Added
