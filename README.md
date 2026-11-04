@@ -1,177 +1,89 @@
-# OpenViking Memory Plugin for Google Antigravity
+# OpenViking Memory Plugin for Google Antigravity (deprecated)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
-[![Antigravity](https://img.shields.io/badge/Antigravity-2.0-blue.svg)](https://antigravity.google)
-[![OpenViking](https://img.shields.io/badge/OpenViking-v0.4.13-orange.svg)](https://github.com/volcengine/OpenViking)
+> **Deprecated.** This standalone plugin is superseded by the Antigravity host built into
+> OpenViking's own memory plugins. Do not install it. Remove it as described below and use the
+> replacement.
 
-A native, zero-dependency plugin that connects **Google Antigravity 2.0** to an **[OpenViking](https://github.com/volcengine/OpenViking)** long-term memory server.
+## Why
 
-Unlike standard MCP servers that require the model to manually call search tools for every turn, this plugin hooks directly into Antigravity's execution lifecycle:
-- **Auto-Recall (`PreInvocation`)**: Injects relevant memories into the prompt before the model runs.
-- **Auto-Capture (`Stop`)**: Asynchronously captures completed conversation turns in a detached background worker without UI latency.
-- **Auto-Distillation**: Automatically distills sessions into curated memories when token limits are reached or sessions become idle.
+- **It no longer works against current OpenViking servers.** The plugin vendors OpenViking
+  v0.4.13's shared plugin library. Its recall reads uid-less URIs (`viking://user/memories`,
+  `viking://user/skills`) that current servers reject, and calls the deprecated
+  `/api/v1/search/recall`, so automatic recall comes back empty.
+- **Capture loses tool activity.** Only user prompts and final assistant answers are sent; tool
+  calls and their results are dropped.
+- **It is tied to one machine.** The installer, `hooks.json`, `mcp_config.json` and
+  `uninstall.sh` hardcode the original author's paths and identity (`/home/vladimir/...`,
+  account `home-coding`, user `vladimir-dev`).
 
----
+The replacement runs on OpenViking's shared plugin runtime, so it follows server changes
+instead of drifting from them.
 
-## Architecture
+## Use the built-in Antigravity host instead
 
-```
-┌───────────────────────────────────────────────────────────┐
-│                      Antigravity 2.0                      │
-│                                                           │
-│  ┌─────────────────┐ ┌──────────────┐ ┌─────────────────┐ │
-│  │ PreInvocation   │ │  MCP Proxy   │ │    Stop Hook    │ │
-│  │   Auto-Recall   │ │ (search/read)│ │   (Background)  │ │
-│  └────────┬────────┘ └───────┬──────┘ └────────┬────────┘ │
-└───────────┼──────────────────┼─────────────────┼──────────┘
-            │                  │                 │
-            │ (Recall Digest)  │ (JSON-RPC)      │ (Batch Turns)
-            ▼                  ▼                 ▼
-┌───────────────────────────────────────────────────────────┐
-│               OpenViking Server (v0.4.13)                 │
-│                 http://127.0.0.1:1933                     │
-└───────────────────────────────────────────────────────────┘
-```
+The replacement provides:
 
----
+- the user profile at the start of each conversation, as a persistent system message;
+- recall once per turn, before the model's first call;
+- capture of every turn, including each tool call with its output or error, and a commit after
+  every turn;
+- a guard that stops `read_file` on `viking://` URIs and points the agent at the MCP tools;
+- the OpenViking MCP tools, which Antigravity calls through `call_mcp_tool`.
 
-## Key Features
-
-1. **Transparent Auto-Recall**
-   - Automatically executes semantic search on OpenViking before the first model call of each user turn.
-   - Per-turn SHA-256 hash deduplication ensures recall runs exactly once per user prompt (never repeated during internal tool-call loops).
-   - Injected as an ephemeral system context block `<openviking-context source="auto-recall" format="digest">`.
-
-2. **Non-Blocking Background Capture**
-   - Foreground `Stop` hook returns `{ "decision": "" }` immediately (< 50 ms latency).
-   - Spawns an unreferenced, detached background worker (`node` process) to parse `transcript.jsonl`.
-   - Filters out internal thinking blocks, tool calls, tool results, checkpoints, and system history, extracting only clean user queries and final assistant answers.
-
-3. **Intelligent Session Distillation**
-   - Accumulates conversation turns in session `ag-<conversationId>`.
-   - Automatically triggers memory distillation (`/commit`) when session pending tokens reach `20,000` (retaining the 10 most recent messages for ongoing context continuity).
-   - Runs an idle sweep on turn 1 to commit sessions inactive for >= 30 minutes.
-
-4. **MCP Tool Integration**
-   - Connects Antigravity's stdio transport to OpenViking's Streamable HTTP `/mcp` endpoint.
-   - Provides supplemental manual tools: `search`, `read`, `find`, `remember`, `search_experience`, and `read_experience`.
-
-5. **Zero External Dependencies**
-   - Built entirely with native Node.js standard libraries (`node:fs`, `node:stream`, `node:child_process`, `node:crypto`). No `node_modules` required.
-
-6. **Offline Resilience & Queue Replay**
-   - If the OpenViking server is temporarily unreachable, turns are durably serialized to disk (`~/.openviking/antigravity/pending/` with `0600` permissions) and replayed automatically on reconnection.
-
----
-
-## Installation & Setup
-
-### Prerequisites
-- Node.js `v18.0.0` or higher
-- Antigravity `2.0+`
-- A running OpenViking server (e.g. `http://127.0.0.1:1933`)
-
-### Quick Install
-
-Clone the repository and run the automated installer:
+It is pending upstream review. Until it ships in an OpenViking release, install it from the
+branch that carries it:
 
 ```bash
-git clone https://github.com/V0v1kkk/openviking-antigravity-memory.git
-cd openviking-antigravity-memory
-./install.sh
+git clone --branch feat/antigravity-host https://github.com/robzimpulse/OpenViking.git
+cd OpenViking
+bash examples/memory-plugin-shared/install.sh --harness antigravity --source dev
 ```
 
-The installer will:
-1. Validate Node.js and OpenViking server availability.
-2. Configure credentials in `~/.openviking/antigravity/ovcli.conf` with restricted `0600` permissions.
-3. Run the full test suite (`node --test`).
-4. Atomically install the plugin to `~/.gemini/config/plugins/openviking-memory/`.
-
----
-
-## Configuration
-
-Settings can be customized via environment variables or inside `~/.openviking/antigravity/ovcli.conf`:
-
-| Environment Variable | Default | Description |
-| -------------------- | ------- | ----------- |
-| `OPENVIKING_URL` | `http://127.0.0.1:1933` | OpenViking server endpoint |
-| `OPENVIKING_API_KEY` | *(from config)* | Bearer API token |
-| `OPENVIKING_ACCOUNT` | `home-coding` | OpenViking tenant account |
-| `OPENVIKING_USER` | `vladimir-dev` | OpenViking user identity |
-| `OPENVIKING_AUTO_RECALL` | `true` | Enable/disable automatic PreInvocation recall |
-| `OPENVIKING_AUTO_CAPTURE` | `true` | Enable/disable automatic Stop capture |
-| `OPENVIKING_COMMIT_TOKEN_THRESHOLD` | `20000` | Token threshold for triggering memory distillation |
-| `OPENVIKING_ANTIGRAVITY_IDLE_TTL_MS` | `1800000` | Idle session commit timeout (30 mins) |
-| `OPENVIKING_DEBUG` | `false` | Enable structured JSONL debug logging |
-
----
-
-## Management & CLI Diagnostics
-
-Use the built-in management script to inspect connections and manage sessions:
+Once released, the one-line installer does the same:
 
 ```bash
-# Check server health, queue depth, and active credentials
-node scripts/manage.mjs status
-
-# List tracked Antigravity sessions and pending offline writes
-node scripts/manage.mjs list
-
-# Force commit pending sessions and replay queue
-node scripts/manage.mjs flush
-
-# Replay pending offline queue
-node scripts/manage.mjs replay
+curl -fsSL https://openviking.ai/install | bash -s -- --harness antigravity
 ```
 
----
+The installer takes the server URL and API key from `~/.openviking/ovcli.conf`, or asks for
+them; pass `--url <server-url> --api-key <api-key>` to set them. It does not read this plugin's
+`~/.openviking/antigravity/ovcli.conf`. Restart the Antigravity App afterwards.
 
-## Running Tests
+Full documentation: the
+[Antigravity host contract](https://github.com/robzimpulse/OpenViking/blob/feat/antigravity-host/examples/agent-hook-plugin/hosts/antigravity/DESIGN.md)
+and the
+[agent-hook plugin README](https://github.com/robzimpulse/OpenViking/blob/feat/antigravity-host/examples/agent-hook-plugin/README.md).
 
-Execute the comprehensive test suite locally:
+## Remove this plugin
 
-```bash
-# Unit tests
-node --test test/unit/*.test.mjs
+Both plugins install into `~/.gemini/config/plugins/openviking-memory`, so remove this one
+before installing the replacement. Do not rely on `./uninstall.sh`: it targets the original
+author's home directory and removes nothing on any other machine.
 
-# Integration tests (against live OpenViking server)
-node --test test/integration/*.test.mjs
+1. Check which plugin is installed. The replacement has an `agent-integrations/` directory;
+   this plugin does not.
 
-# Identity isolation test
-node --test test/isolation/*.test.mjs
-```
+   ```bash
+   ls -d ~/.gemini/config/plugins/openviking-memory/agent-integrations 2>/dev/null \
+     && echo "replacement installed: keep it" \
+     || echo "this plugin, or nothing, is installed"
+   ```
 
----
+2. If it is this plugin, delete it and its runtime state (its credentials copy, logs and
+   pending queue). Unsent turns in that queue are discarded. The replacement does not use
+   `~/.openviking/antigravity`.
 
-## Uninstallation
+   ```bash
+   rm -rf ~/.gemini/config/plugins/openviking-memory
+   rm -rf ~/.openviking/antigravity
+   ```
 
-To remove the plugin from Antigravity:
+3. Restart the Antigravity App.
 
-```bash
-./uninstall.sh
+## History and license
 
-# To also purge cached runtime state and credentials:
-./uninstall.sh --purge
-```
+The 0.1.0 code stays in this repository's history; see [CHANGELOG.md](CHANGELOG.md).
 
----
-
-## Contributing
-
-Contributions are welcome! If you find a bug, have an optimization idea, or want to enhance functionality:
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/amazing-feature`).
-3. Ensure all tests pass (`node --test test/unit/*.test.mjs`).
-4. Commit your changes and open a Pull Request.
-
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
-
----
-
-## License
-
-Distributed under the [MIT License](LICENSE). See `LICENSE` for more information.
-
-Includes vendored proxy core and shared utilities from [OpenViking](https://github.com/volcengine/OpenViking) under the Apache 2.0 License (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+Distributed under the [MIT License](LICENSE). Includes vendored code from
+[OpenViking](https://github.com/volcengine/OpenViking) under the Apache 2.0 License (see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
